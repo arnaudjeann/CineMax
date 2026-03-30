@@ -3,6 +3,7 @@ import sqlite3
 class DatabaseManager:
     def __init__(self, db_name="cinemax.db"):
         self.db_name = db_name
+        self.create_tables()
 
     def create_tables(self):
         """Initializes the relational structures of CineGraph."""
@@ -83,3 +84,11 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute(query, (f"%{movie1_title}%", f"%{movie2_title}%"))
             return [row[0] for row in cursor.fetchall()]
+
+    def get_all_movies(self):
+        """Retrives the list of all movies stored in the database."""
+        query = "SELECT title, year FROM movies ORDER BY title ASC"
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+            cursor.execute(query)
+            return cursor.fetchall()

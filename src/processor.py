@@ -1,10 +1,10 @@
-from src.api_client import TMDBClient
+from src.api_client import APIClient
 from src.database import DatabaseManager
 
 class DataProcessor:
-    def __init__(self):
+    def __init__(self, db_name="cinemax.db"):
         self.db = DatabaseManager()
-        self.api = TMDBClient()
+        self.api = APIClient()
         self.db.create_tables()
 
     def process_new_movie(self, raw_title, year=None):

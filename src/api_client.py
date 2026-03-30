@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-class TMDBClient:
+class APIClient:
     def __init__(self):
         self.api_token = os.getenv("TMDB_API_KEY")
         self.base_url = "https://api.themoviedb.org/3"
@@ -35,3 +35,16 @@ class TMDBClient:
             "cast": credits_data.get('cast', [])[:5],
             "crew": credits_data.get('crew', [])
         }
+
+    def get_trending_movies(self):
+        """ Fetches the top 20 trending movies of the week from TMBD."""
+        url = f"{self.base_url}/trending/movie/week"
+
+        try:
+            response = requests.get(url, headers=self.headers)
+            response.raise_for_status()
+            data = response.json()
+            return data.get('results', [])
+        except requests.exceptions.RequestException as e:
+            print(f"API Error during trending fetch: {e}")
+            return []
