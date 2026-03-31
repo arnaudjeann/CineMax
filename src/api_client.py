@@ -1,50 +1,57 @@
 import requests
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
 
 class APIClient:
-    def __init__(self):
-        self.api_token = os.getenv("TMDB_API_KEY")
+    def __init__(self, api_key):
+        self.api_key = api_key
         self.base_url = "https://api.themoviedb.org/3"
-        self.headers = {
-            "Authorization" : f"Bearer {self.api_token}",
-            "Content-Type": "application/json;charset=utf-8"
-        }
 
-    def fetch_movie_data(self, title, year=None):
-        """Search for a movie and return its main data and credits."""
+    def get_suggestions(self, query):
+        """Fetch movie suggestions for the live search dropdown."""
+        url = f"{self.base_url}/search/movie"
+        params = {
+            "api_key": self.api_key,
+            "query": query,
+            "include_adult": "false",
+            "language": "en-US"
+        }
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            return response.json().get('results', [])[:8]
+        except Exception as e:
+            print(f"DEBUG - Suggestion Error: {e}")
+            return []
+
+    def fetch_movie_details(self, title, year=None):
+        """Fetch full movie data, cast, and crew for database import."""
         search_url = f"{self.base_url}/search/movie"
-        params = {"query": title, "year": year}
-
-        response = requests.get(search_url, headers=self.headers, params=params)
-        results = response.json().get('results')
-
-        if not results:
-            return None
-
-        movie_id = results[0]['id']
-
-        credits_url = f"{self.base_url}/movie/{movie_id}/credits"
-        credits_response = requests.get(credits_url, headers=self.headers)
-        credits_data = credits_response.json()
-
-        return {
-            "info": results[0],
-            "cast": credits_data.get('cast', [])[:5],
-            "crew": credits_data.get('crew', [])
-        }
-
-    def get_trending_movies(self):
-        """ Fetches the top 20 trending movies of the week from TMBD."""
-        url = f"{self.base_url}/trending/movie/week"
+        params = {"api_key": self.api_key, "query": title, "year": year}
 
         try:
-            response = requests.get(url, headers=self.headers)
-            response.raise_for_status()
-            data = response.json()
-            return data.get('results', [])
-        except requests.exceptions.RequestException as e:
-            print(f"API Error during trending fetch: {e}")
+            response = requests.get(search_url, params=params)
+            results = response.json().get('results')
+            if not results: return None
+
+            movie_id = results[0]['id']
+            credits_url = f"{self.base_url}/movie/{movie_id}/credits"
+            credits_response = requests.get(credits_url, params={"api_key": self.api_key})
+
+            return {
+                "info": results[0],
+                "cast": credits_response.json().get('cast', [])[:5],
+                "crew": credits_response.json().get('crew', [])
+            }
+        except Exception as e:
+            print(f"DEBUG - Details Fetch Error: {e}")
+            return None
+
+    def get_trending_movies(self):
+        """Fetch this week's top 20 trending movies."""
+        url = f"{self.base_url}/trending/movie/week"
+        try:
+            response = requests.get(url, params={"api_key": self.api_key})
+            return response.json().get('results', [])
+        except Exception as e:
+            print(f"DEBUG - Trending Error: {e}")
             return []

@@ -36,7 +36,7 @@
             padding: 24px;
             border-radius: 12px;
             border: 1px solid #334155;
-            text-align: left;
+            position: relative;
         }
 
         .full-width { grid-column: 1 / -1; }
@@ -45,7 +45,7 @@
 
         input {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             margin: 8px 0;
             border-radius: 6px;
             border: 1px solid #475569;
@@ -55,20 +55,56 @@
         }
 
         button {
-            width: 100%;
-            padding: 12px;
+            padding: 12px 20px;
             color: white;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
-            transition: opacity 0.2s;
+            transition: all 0.2s;
         }
 
-        .btn-blue { background: var(--accent); }
-        .btn-green { background: var(--success); }
-        .btn-gold { background: var(--warning); color: #000; }
-        button:hover { opacity: 0.9; }
+        .btn-blue { background: var(--accent); width: 100%; }
+        .btn-gold { background: var(--warning); color: #000; width: 100%; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        /* --- SUGGESTIONS STYLES --- */
+        .suggestions-container {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 0 0 8px 8px;
+            z-index: 1000;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .suggestion-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #334155;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .suggestion-item:hover { background: #334155; }
+
+        .suggestion-item img {
+            width: 45px;
+            height: 68px;
+            border-radius: 4px;
+            margin-right: 15px;
+            object-fit: cover;
+            background: #0f172a;
+        }
+
+        .suggestion-info .title { font-weight: bold; display: block; color: var(--text-main); }
+        .suggestion-info .year { font-size: 0.85rem; color: var(--text-dim); }
 
         .badge {
             background: #334155;
@@ -82,7 +118,7 @@
         .result-box {
             margin-top: 20px;
             padding: 15px;
-            background: #1e293b;
+            background: rgba(34, 197, 94, 0.1);
             border-left: 4px solid var(--success);
             border-radius: 4px;
         }
@@ -101,16 +137,16 @@
 <div class="container">
     <header>
         <h1>🎬 CineMax</h1>
-        <div class="subtitle">THE MOVIE EXPLORER</div>
+        <div class="subtitle">Discovery & Network Engine</div>
     </header>
 
     <div class="grid">
         <div class="card full-width">
             <h3>🔗 Analyze Relationships</h3>
-            <form action="/search" method="post" style="display: flex; gap: 10px;">
-                <input type="text" name="movie1" placeholder="First Movie Title" required>
-                <input type="text" name="movie2" placeholder="Second Movie Title" required>
-                <button type="submit" class="btn-blue" style="width: auto;">Analyze</button>
+            <form action="/search" method="post" style="display: flex; gap: 10px; align-items: center;">
+                <input type="text" name="movie1" placeholder="First Movie Title" required value="{{ m1 if m1 }}">
+                <input type="text" name="movie2" placeholder="Second Movie Title" required value="{{ m2 if m2 }}">
+                <button type="submit" class="btn-blue" style="width: auto; white-space: nowrap;">Analyze</button>
             </form>
 
             {% if actors %}
@@ -118,21 +154,29 @@
                     <strong>Shared Cast Found:</strong>
                     <p style="margin: 5px 0 0 0; color: var(--success);">{{ actors|join(', ') }}</p>
                 </div>
+            {% elif m1 and m2 %}
+                <div class="result-box" style="border-left-color: var(--warning);">
+                    <p style="margin: 0; color: var(--warning);">No shared actors found between these movies.</p>
+                </div>
             {% endif %}
         </div>
 
         <div class="card">
-            <h3>📥 Manual Import</h3>
-            <form action="/import" method="post">
-                <input type="text" name="new_movie" placeholder="Search title on TMDB..." required>
-                <button type="submit" class="btn-green">Sync to Library</button>
+            <h3>➕ Add Movie</h3>
+            <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 10px;">Search TMDB to add to your database.</p>
+            <form action="/import" method="post" id="add-movie-form">
+                <div style="position: relative;">
+                    <input type="text" id="movie-search" name="new_movie" placeholder="Type a movie title..." autocomplete="off" required>
+                    <div id="suggestion-box" class="suggestions-container"></div>
+                </div>
+                <button type="submit" class="btn-blue" style="margin-top: 10px;">Import Movie</button>
             </form>
         </div>
 
         <div class="card">
             <h3>⚡ Automation</h3>
-            <p style="font-size: 0.8rem; color: var(--text-dim);">Batch fetch the current top 20 trending movies.</p>
-            <a href="{{ url_for('sync_trending') }}">
+            <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 20px;">Sync the current top 20 trending movies instantly.</p>
+            <a href="{{ url_for('sync_trending') }}" style="text-decoration: none;">
                 <button type="button" class="btn-gold">Run Batch Sync</button>
             </a>
         </div>
@@ -141,17 +185,77 @@
     <div class="card full-width">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h3 style="margin: 0;">Local Repository Status</h3>
-            <span style="font-size: 0.8rem; color: var(--text-dim);">{{ movies_list|length }} entries synchronized</span>
+            <span style="font-size: 0.8rem; color: var(--text-dim);">{{ movies_list|length }} movies tracked</span>
         </div>
         <div class="scroll-area">
             {% for movie in movies_list %}
                 <div class="badge">
                     <strong>{{ movie[0] }}</strong> <span style="color: var(--text-dim);">({{ movie[1] }})</span>
                 </div>
+            {% else %}
+                <p style="text-align: center; color: var(--text-dim);">Your library is currently empty.</p>
             {% endfor %}
         </div>
     </div>
 </div>
+
+<script>
+    console.log("CineMax Script Loaded Successfully!");
+
+    const searchInput = document.getElementById('movie-search');
+    const suggestionBox = document.getElementById('suggestion-box');
+
+    if (!searchInput) {
+        console.error("CRITICAL: Element #movie-search not found in HTML!");
+    }
+
+    searchInput.addEventListener('input', async (e) => {
+        const query = e.target.value;
+        console.log("Input detected:", query);
+
+        if (query.length < 2) {
+            suggestionBox.innerHTML = '';
+            return;
+        }
+
+        try {
+            console.log("Fetching suggestions for:", query);
+            const response = await fetch(`/search-suggestions?q=${encodeURIComponent(query)}`);
+            const data = await response.json();
+
+            console.log("Data received from Python:", data);
+
+            if (data.results && data.results.length > 0) {
+                suggestionBox.innerHTML = data.results.map(movie => `
+                    <div class="suggestion-item" onclick="selectMovie('${movie.title.replace(/'/g, "\\'")}')">
+                        <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w92' + movie.poster_path : 'https://via.placeholder.com/45x68?text=No+Img'}" alt="poster">
+                        <div class="suggestion-info">
+                            <span class="title">${movie.title}</span>
+                            <span class="year">${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                suggestionBox.innerHTML = '<div style="padding:10px; color:gray;">No results found</div>';
+            }
+        } catch (err) {
+            console.error("Fetch error:", err);
+        }
+    });
+
+    function selectMovie(title) {
+        console.log("Movie selected:", title);
+        searchInput.value = title;
+        suggestionBox.innerHTML = '';
+    }
+
+    // Close suggestions when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !suggestionBox.contains(e.target)) {
+            suggestionBox.innerHTML = '';
+        }
+    });
+</script>
 
 </body>
 </html>

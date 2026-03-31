@@ -18,7 +18,7 @@ class DatabaseManager:
             # 2. Movie Table (linked to Director)
             cursor.execute('''CREATE TABLE IF NOT EXISTS movies (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                title TEXT,
+                                title TEXT UNIQUE,
                                 year INTEGER,
                                 director_id INTEGER,
                                 overview TEXT,
