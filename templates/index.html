@@ -143,11 +143,19 @@
     <div class="grid">
         <div class="card full-width">
             <h3>🔗 Analyze Relationships</h3>
-            <form action="/search" method="post" style="display: flex; gap: 10px; align-items: center;">
-                <input type="text" name="movie1" placeholder="First Movie Title" required value="{{ m1 if m1 }}">
-                <input type="text" name="movie2" placeholder="Second Movie Title" required value="{{ m2 if m2 }}">
-                <button type="submit" class="btn-blue" style="width: auto; white-space: nowrap;">Analyze</button>
-            </form>
+            <form action="/search" method="post" style="display: flex; gap: 10px; align-items: flex-start;">
+    <div style="position: relative; flex: 1;">
+        <input type="text" id="movie1-search" name="movie1" placeholder="First Movie Title" required autocomplete="off" value="{{ m1 if m1 }}">
+        <div id="suggestion-box-1" class="suggestions-container"></div>
+    </div>
+
+    <div style="position: relative; flex: 1;">
+        <input type="text" id="movie2-search" name="movie2" placeholder="Second Movie Title" required autocomplete="off" value="{{ m2 if m2 }}">
+        <div id="suggestion-box-2" class="suggestions-container"></div>
+    </div>
+
+    <button type="submit" class="btn-blue" style="width: auto; white-space: nowrap; margin-top: 8px;">Analyze</button>
+</form>
 
             {% if actors %}
                 <div class="result-box">
@@ -200,62 +208,50 @@
 </div>
 
 <script>
-    console.log("CineMax Script Loaded Successfully!");
+    function setupAutocomplete(inputId, boxId) {
+        const input = document.getElementById(inputId);
+        const box = document.getElementById(boxId);
 
-    const searchInput = document.getElementById('movie-search');
-    const suggestionBox = document.getElementById('suggestion-box');
-
-    if (!searchInput) {
-        console.error("CRITICAL: Element #movie-search not found in HTML!");
-    }
-
-    searchInput.addEventListener('input', async (e) => {
-        const query = e.target.value;
-        console.log("Input detected:", query);
-
-        if (query.length < 2) {
-            suggestionBox.innerHTML = '';
-            return;
-        }
-
-        try {
-            console.log("Fetching suggestions for:", query);
-            const response = await fetch(`/search-suggestions?q=${encodeURIComponent(query)}`);
-            const data = await response.json();
-
-            console.log("Data received from Python:", data);
-
-            if (data.results && data.results.length > 0) {
-                suggestionBox.innerHTML = data.results.map(movie => `
-                    <div class="suggestion-item" onclick="selectMovie('${movie.title.replace(/'/g, "\\'")}')">
-                        <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w92' + movie.poster_path : 'https://via.placeholder.com/45x68?text=No+Img'}" alt="poster">
-                        <div class="suggestion-info">
-                            <span class="title">${movie.title}</span>
-                            <span class="year">${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</span>
-                        </div>
-                    </div>
-                `).join('');
-            } else {
-                suggestionBox.innerHTML = '<div style="padding:10px; color:gray;">No results found</div>';
+        input.addEventListener('input', async (e) => {
+            const query = e.target.value;
+            if (query.length < 2) {
+                box.innerHTML = '';
+                return;
             }
-        } catch (err) {
-            console.error("Fetch error:", err);
-        }
-    });
 
-    function selectMovie(title) {
-        console.log("Movie selected:", title);
-        searchInput.value = title;
-        suggestionBox.innerHTML = '';
+            try {
+                const response = await fetch(`/search-suggestions?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (data.results && data.results.length > 0) {
+                    box.innerHTML = data.results.map(movie => `
+                        <div class="suggestion-item" onclick="selectMovie('${inputId}', '${boxId}', '${movie.title.replace(/'/g, "\\'")}')">
+                            <img src="${movie.poster_path ? 'https://image.tmdb.org/t/p/w92' + movie.poster_path : 'https://via.placeholder.com/45x68'}" alt="poster">
+                            <div class="suggestion-info">
+                                <span class="title">${movie.title}</span>
+                                <span class="year">${movie.release_date ? movie.release_date.split('-')[0] : 'N/A'}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (err) { console.error("Error:", err); }
+        });
     }
 
-    // Close suggestions when clicking outside
+    function selectMovie(inputId, boxId, title) {
+        document.getElementById(inputId).value = title;
+        document.getElementById(boxId).innerHTML = '';
+    }
+
+    setupAutocomplete('movie-search', 'suggestion-box');    // Champ "Add"
+    setupAutocomplete('movie1-search', 'suggestion-box-1'); // Champ "Analyze 1"
+    setupAutocomplete('movie2-search', 'suggestion-box-2'); // Champ "Analyze 2"
+
     document.addEventListener('click', (e) => {
-        if (!searchInput.contains(e.target) && !suggestionBox.contains(e.target)) {
-            suggestionBox.innerHTML = '';
-        }
+        document.querySelectorAll('.suggestions-container').forEach(box => {
+            if (!box.contains(e.target)) box.innerHTML = '';
+        });
     });
 </script>
-
 </body>
 </html>

@@ -1,4 +1,6 @@
 import os
+import sqlite3
+
 from flask import Flask, render_template, request, jsonify, redirect
 from src.database import DatabaseManager
 from src.api_client import APIClient
@@ -11,7 +13,7 @@ app = Flask(__name__)
 # Object Initialization
 api_client = APIClient(TMDB_API_KEY)
 db = DatabaseManager("cinemax.db")
-processor = DataProcessor(TMDB_API_KEY, "cinemax.db")
+processor = DataProcessor(TMDB_API_KEY, db)
 
 
 @app.route('/')
@@ -54,6 +56,21 @@ def sync_trending():
         processor.process_file(movie.get('title'), movie.get('release_date', '')[:4])
     return redirect('/')
 
+
+@app.route('/search', methods=['POST'])
+def search():
+    movie1 = request.form.get('movie1')
+    movie2 = request.form.get('movie2')
+
+    shared_actors = db.find_shared_actors(movie1, movie2)
+
+    all_movies = db.get_all_movies()
+
+    return render_template('index.html',
+                           actors=shared_actors,
+                           m1=movie1,
+                           m2=movie2,
+                           movies_list=all_movies)
 
 if __name__ == '__main__':
     app.run(debug=True)

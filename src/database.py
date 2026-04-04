@@ -41,24 +41,24 @@ class DatabaseManager:
             print("Database initialized successfully.")
 
     def save_movie_with_relations(self, movie_data, director_name, cast_list):
-        """High-level method to save a movie and its network or actors."""
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
 
-            # 1. Handle Director (Insert if not exists, then get ID)
             cursor.execute("INSERT OR IGNORE INTO directors (name) VALUES (?)", (director_name,))
             cursor.execute("SELECT id FROM directors WHERE name = ?", (director_name,))
             director_id = cursor.fetchone()[0]
 
-            # 2. Insert Movie
+            year = movie_data.get('release_date', '0000')[:4]
+
             cursor.execute("""
                 INSERT OR IGNORE INTO movies (title, year, director_id, overview)
                 VALUES (?, ?, ?, ?)""",
-                (movie_data['title'], movie_data['release_date'][:4], director_id, movie_data['overview'])
-            )
-            movie_id = cursor.lastrowid
+                           (movie_data['title'], year, director_id, movie_data['overview'])
+                           )
 
-            # 3. Handle Actors and Junction Table
+            cursor.execute("SELECT id FROM movies WHERE title = ?", (movie_data['title'],))
+            movie_id = cursor.fetchone()[0]
+
             for actor in cast_list:
                 cursor.execute("INSERT OR IGNORE INTO actors (name) VALUES (?)", (actor['name'],))
                 cursor.execute("SELECT id FROM actors WHERE name = ?", (actor['name'],))
@@ -68,9 +68,9 @@ class DatabaseManager:
                                (movie_id, actor_id))
 
             conn.commit()
+            print(f"✅ DB Updated: {movie_data['title']} (ID: {movie_id}) with {len(cast_list)} actors.")
 
     def find_shared_actors(self, movie1_title, movie2_title):
-        """Finds actors who appeared in both movies using a SQL JOIN."""
         query = """
         SELECT DISTINCT a.name 
         FROM actors a
@@ -78,12 +78,14 @@ class DatabaseManager:
         JOIN movies m1 ON mc1.movie_id = m1.id
         JOIN movie_cast mc2 ON a.id = mc2.actor_id
         JOIN movies m2 ON mc2.movie_id = m2.id
-        WHERE m1.title LIKE ? AND m2.title LIKE ?
+        WHERE LOWER(m1.title) LIKE LOWER(?) 
+          AND LOWER(m2.title) LIKE LOWER(?)
         """
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
             cursor.execute(query, (f"%{movie1_title}%", f"%{movie2_title}%"))
-            return [row[0] for row in cursor.fetchall()]
+            results = [row[0] for row in cursor.fetchall()]
+            return results
 
     def get_all_movies(self):
         """Retrives the list of all movies stored in the database."""

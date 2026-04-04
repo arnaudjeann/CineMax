@@ -2,10 +2,9 @@ from src.api_client import APIClient
 from src.database import DatabaseManager
 
 class DataProcessor:
-    def __init__(self, api_key, db_name="cinemax.db"):
-        self.db = DatabaseManager()
+    def __init__(self, api_key, db_manager):
+        self.db = db_manager
         self.api = APIClient(api_key)
-        self.db.create_tables()
 
     def process_new_movie(self, raw_title, year=None):
         """The core logic: Search, Clean, and Link in Database."""
@@ -26,9 +25,6 @@ class DataProcessor:
             print(f" - Adding actor: {actor['name']}")
 
     def process_file(self, raw_title, year=None):
-        print(f"--- Processing: {raw_title} ---")
-
-        # Fetch from API
         data = self.api.fetch_movie_details(raw_title, year)
         if not data:
             print(f"Could not find {raw_title} on TMDB.")
@@ -37,9 +33,6 @@ class DataProcessor:
         movie_info = data['info']
         cast = data['cast']
 
-        # Find Director
-        director = next((person['name'] for person in data['crew'] if person['job'] == 'Director'), "Unknown")
+        director = next((p['name'] for p in data['crew'] if p['job'] == 'Director'), "Unknown")
 
-        #Save everything to SQL
         self.db.save_movie_with_relations(movie_info, director, cast)
-        print(f"Successfully added {movie_info['title']} to your network.")
